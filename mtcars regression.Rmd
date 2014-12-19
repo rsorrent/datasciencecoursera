@@ -1,0 +1,112 @@
+**mtcars regression**
+Riccardo Sorrentino
+
+This analysis of the mtcars data base focuses on the relation between a set of variables and the miles per U.S. gallon (mpg) ratio, with a special emphasis on the difference between automatic and manual transmission. mtcars contains (see appendix) data about the number of Cylinders (cyl), Displacement in cubic inches (disp), Gross horsepower (hp), Rear axle ratio (drat), Weight in lb/1000 (w), the time of 1/4 mile (qsec), the setting of cylinders (vs), the transmission (am, 0 = automatic, 1 = manual), number of forward gears (gear) and number of carburators (carb).
+
+We can calculate the correlation between mpg and the other variables: 
+```{r, echo=FALSE}
+round(cor(mtcars$mpg, mtcars),3)
+```
+
+The variable wt has the highest correlation with mpg. The correlation between mpg and am is about 0.60. An exploratory data analysis shows there is an high difference between the average consumption of both automatic and manual transmission.
+
+```{r, echo=FALSE, out.width=400}
+boxplot(mtcars$mpg ~ mtcars$am, names = c("Automatic", "Manual"))
+```
+
+The difference appears to be statistically significant:
+```{r, echo=FALSE}
+t.test((mtcars$mpg[mtcars$am==1]), (mtcars$mpg[mtcars$am==0]))
+```
+
+A linear regression between mpg and am tells us what we already know (see appendix): the average mpg for automatic transmission cars is 14.1 and a manual trasmission adds 7.2 miles per gallon. We need a multiple regression. The first candidate, as a new variable, is obviously wt. Manual transmission cars appears to be lighter than automatic transmission car (see Appendix)
+
+```{r, echo=FALSE}
+fita <- lm(mpg ~ am, data = mtcars)
+fitb <- lm(mpg ~ wt + am, data = mtcars)
+summary(fitb)$coef
+```
+
+Plotting wt and mpg differentiating automatic (in red) and the manual (in blue) transmission cars, we get two intersecting lines.  
+```{r, echo=FALSE, out.width=400}
+plot(mtcars$wt, mtcars$mpg, type="n", frame=FALSE, xlab="Weight", ylab="Miles per gallon")
+points(mtcars$wt[mtcars$am==0], mtcars$mpg[mtcars$am==0], col="red")
+points(mtcars$wt[mtcars$am==1], mtcars$mpg[mtcars$am==1], col="blue")
+abline(h=mean(mtcars$mpg[mtcars$am==0]))
+abline(h=mean(mtcars$mpg[mtcars$am==1]))
+fit1 <- lm(mpg[mtcars$am==0] ~ wt[mtcars$am==0], data=mtcars)
+abline(coef(fit1)[1], coef(fit1)[2], col="red")
+fit2 <- lm(mpg[mtcars$am==1] ~ wt[mtcars$am==1], data=mtcars)
+abline(coef(fit2)[1], coef(fit2)[2], col="blue")
+```
+
+It could be an hint that we need to insert an interaction.
+
+```{r, echo=FALSE}
+fitc <- lm(mpg ~ wt + am + wt*am, data = mtcars)
+summary(fitc)$coef
+```
+
+Other variables (see appendix) are highly correlated with am and/or wt, except qsec. Adding qsec to the regression we get a better result as confirmed by the ANOVA and the likelihood ratio test(see Appendix).
+
+```{r, echo=FALSE}
+fitd <- lm(mpg ~ qsec + wt + am + wt*am, data = mtcars)
+summary(fitd)$coef
+```
+
+According the last regression, the manual transmission rises the mpg by 14.1 miles minus 4.1 miles per every 1,000 lbs. This regression explains about 90% of the outcome, the p-values for the slopes are very low, so they are statistically significant. F statistics, as a measure of uncertainty, is far above the level of 1 with a low p-value. An analysis on residual shows no heteroskedasticity (see Appendix).
+
+**Executive summary**
+The mtcars data base shows that the difficult balance between Weight and Time of 1/4 mile is correlated with miles per gallon. The manual transmission cars in the data set have better fuel consumption.
+
+#Appendix#
+The mtcars data base
+```{r, echo=FALSE}
+head(mtcars, 3)
+```
+
+Average mpg of automatic and manual trasmission and lm coefficients
+
+```{r, echo=FALSE}
+round(mean(mtcars$mpg[mtcars$am == 0]),3); round(mean(mtcars$mpg[mtcars$am == 1]),3)
+round(summary(fita)$coef, 3)
+```
+
+The correlation between wt and the others variables
+
+```{r, echo=FALSE}
+round(cor(mtcars$wt, mtcars), 3)
+```
+Manual transmission cars are lighter than automatic transmission cars. The difference in weight is statistically significant.
+
+```{r, echo=FALSE, out.width=300}
+boxplot(mtcars$wt ~ mtcars$am, names = c("Automatic", "Manual"))
+t.test((mtcars$wt[mtcars$am==1]), (mtcars$wt[mtcars$am==0]))
+
+```
+
+The ANOVA analysis
+
+```{r, echo=FALSE}
+fite <- lm(mpg ~ hp + qsec + wt + am + wt*am, data = mtcars)
+anova(fita, fitb, fitc, fitd, fite)
+```
+
+The likelihood ratio test: adding variables, we get p values are < =.05 up to a point
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+require(lmtest)
+```
+```{r, echo=FALSE}
+lrtest(fitb, fitc)
+lrtest(fitc, fitd)
+lrtest(fitd, fite)
+```
+
+
+A diagnostic
+
+```{r, echo=FALSE, out.width=400}
+par(mfrow=c(2,2))
+plot(fitd)
+```
